@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GPIB API Client v2.0</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 2em;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .section {
+      margin: 2em 0;
+      padding: 1em;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .section h2 {
+      color: #333;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 0.5em;
+    }
+    input, select, button, textarea {
+      padding: 0.5em;
+      margin: 0.5em 0;
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button.danger {
+      background-color: #dc3545;
+    }
+    button.danger:hover {
+      background-color: #c82333;
+    }
+    button.success {
+      background-color: #28a745;
+    }
+    button.success:hover {
+      background-color: #218838;
+    }
+    textarea {
+      height: 200px;
+      font-family: monospace;
+    }
+    .status {
+      padding: 0.5em;
+      margin: 0.5em 0;
+      border-radius: 4px;
+    }
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .status.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1em;
+    }
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .config-section {
+      background-color: #f8f9fa;
+      border: 2px solid #007bff;
+      margin-bottom: 2em;
+    }
+    .config-section h2 {
+      color: #007bff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎛️ GPIB API Client v2.0</h1>
+    
+    <div class="section config-section">
+      <h2>⚙️ Configuración del Servidor</h2>
+      <label for="serverUrl">URL del Servidor API</label>
+      <input type="text" id="serverUrl" placeholder="http://localhost:8000" value="http://localhost:8000" />
+      <button onclick="testServerConnection()" class="success">Probar Conexión al Servidor</button>
+      <div id="serverStatus" class="status info">Configura la URL del servidor y prueba la conexión</div>
+    </div>
+    
+    <div class="section">
+      <h2>🔐 Autenticación</h2>
+      <label for="token">Token de Autenticación</label>
+      <input type="text" id="token" placeholder="abc123 (admin) o xyz789 (usuario)" />
+      <div id="authStatus" class="status info">Ingresa un token para comenzar</div>
+    </div>
+
+    <div class="section">
+      <h2>📊 Información del Sistema</h2>
+      <button onclick="getSystemInfo()" class="success">Obtener Info del Sistema</button>
+      <div id="systemInfo"></div>
+    </div>
+
+    <div class="section">
+      <h2>🔍 Detección de Adaptadores GPIB</h2>
+      <button onclick="listAdapters()" class="success">Buscar Adaptadores GPIB</button>
+      <div id="adaptersInfo"></div>
+    </div>
+
+    <div class="section">
+      <h2>📋 Instrumentos Conectados</h2>
+      <button onclick="listInstruments()" class="success">Listar Instrumentos</button>
+      <div id="instrumentsInfo"></div>
+    </div>
+
+    <div class="section">
+      <h2>🧪 Prueba de Conexión</h2>
+      <label for="testAddress">Dirección GPIB para probar</label>
+      <input type="text" id="testAddress" placeholder="GPIB0::5::INSTR" />
+      <button onclick="testConnection()" class="success">Probar Conexión</button>
+      <div id="testResult"></div>
+    </div>
+
+    <div class="section">
+      <h2>📡 Comunicación SCPI</h2>
+      <div class="grid">
+        <div>
+          <label for="gpibAddress">Dirección GPIB</label>
+          <input type="text" id="gpibAddress" placeholder="GPIB0::5::INSTR" required />
+          
+          <label for="command">Comando SCPI</label>
+          <input type="text" id="command" placeholder="*IDN?" required />
+          
+          <label for="method">Tipo de operación</label>
+          <select id="method">
+            <option value="read">Leer (*IDN?)</option>
+            <option value="write">Escribir comando</option>
+            <option value="query">Query (comando + respuesta)</option>
+          </select>
+          
+          <button onclick="sendCommand()">Enviar Comando</button>
+        </div>
+        <div>
+          <label>Resultado</label>
+          <textarea id="output" readonly></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🔧 Gestión de Conexiones</h2>
+      <label for="closeAddress">Dirección GPIB para cerrar</label>
+      <input type="text" id="closeAddress" placeholder="GPIB0::5::INSTR" />
+      <button onclick="closeConnection()" class="danger">Cerrar Conexión</button>
+      <button onclick="closeAllConnections()" class="danger">Cerrar Todas las Conexiones</button>
+      <div id="connectionStatus"></div>
+    </div>
+  </div>
+
+  <script>
+    function getApiBase() {
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      if (!serverUrl) {
+        return '';
+      }
+      // Asegurar que la URL termine sin slash para evitar dobles slashes
+      return serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
+    }
+
+    function showStatus(elementId, message, type = 'info') {
+      const element = document.getElementById(elementId);
+      element.className = `status ${type}`;
+      element.innerHTML = message;
+    }
+
+    function formatJSON(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    async function testServerConnection() {
+      const apiBase = getApiBase();
+      if (!apiBase) {
+        showStatus('serverStatus', '❌ Error: Debes especificar una URL del servidor', 'error');
+        return;
+      }
+
+      try {
+        showStatus('serverStatus', '🔄 Probando conexión...', 'info');
+        
+        const response = await fetch(`${apiBase}/docs`);
+        if (response.ok) {
+          showStatus('serverStatus', '✅ Servidor conectado correctamente', 'success');
+        } else {
+          showStatus('serverStatus', `⚠️ Servidor responde pero con estado ${response.status}`, 'info');
+        }
+      } catch (error) {
+        showStatus('serverStatus', `❌ Error de conexión: ${error.message}`, 'error');
+      }
+    }
+
+    async function makeRequest(endpoint, method = 'GET', body = null) {
+      const token = document.getElementById('token').value;
+      if (!token) {
+        showStatus('authStatus', '❌ Error: Debes proporcionar un token de autenticación', 'error');
+        return null;
+      }
+
+      const apiBase = getApiBase();
+      if (!apiBase) {
+        showStatus('authStatus', '❌ Error: Debes especificar una URL del servidor', 'error');
+        return null;
+      }
+
+      const headers = {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      };
+
+      try {
+        const options = {
+          method: method,
+          headers: headers
+        };
+
+        if (body && method !== 'GET') {
+          options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(`${apiBase}${endpoint}`, options);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        showStatus('authStatus', '✅ Token válido', 'success');
+        return result;
+      } catch (error) {
+        showStatus('authStatus', `❌ Error: ${error.message}`, 'error');
+        throw error;
+      }
+    }
+
+    async function getSystemInfo() {
+      try {
+        const result = await makeRequest('/system/info');
+        if (result) {
+          document.getElementById('systemInfo').innerHTML = 
+            `<pre>${formatJSON(result)}</pre>`;
+        }
+      } catch (error) {
+        document.getElementById('systemInfo').innerHTML = 
+          `<div class="status error">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function listAdapters() {
+      try {
+        const result = await makeRequest('/gpib/adapters');
+        if (result) {
+          document.getElementById('adaptersInfo').innerHTML = 
+            `<pre>${formatJSON(result)}</pre>`;
+        }
+      } catch (error) {
+        document.getElementById('adaptersInfo').innerHTML = 
+          `<div class="status error">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function listInstruments() {
+      try {
+        const result = await makeRequest('/gpib/instruments');
+        if (result) {
+          document.getElementById('instrumentsInfo').innerHTML = 
+            `<pre>${formatJSON(result)}</pre>`;
+        }
+      } catch (error) {
+        document.getElementById('instrumentsInfo').innerHTML = 
+          `<div class="status error">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function testConnection() {
+      const address = document.getElementById('testAddress').value;
+      if (!address) {
+        showStatus('testResult', '❌ Error: Debes proporcionar una dirección GPIB', 'error');
+        return;
+      }
+
+      try {
+        const result = await makeRequest(`/gpib/test/${encodeURIComponent(address)}`);
+        if (result) {
+          document.getElementById('testResult').innerHTML = 
+            `<pre>${formatJSON(result)}</pre>`;
+        }
+      } catch (error) {
+        document.getElementById('testResult').innerHTML = 
+          `<div class="status error">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function sendCommand() {
+      const address = document.getElementById('gpibAddress').value;
+      const command = document.getElementById('command').value;
+      const method = document.getElementById('method').value;
+      const output = document.getElementById('output');
+
+      if (!address || !command) {
+        output.value = 'Error: Debes proporcionar dirección GPIB y comando';
+        return;
+      }
+
+      try {
+        let result;
+        if (method === 'read') {
+          result = await makeRequest(`/gpib/read?address=${encodeURIComponent(address)}`);
+        } else if (method === 'write') {
+          result = await makeRequest(`/gpib/write?address=${encodeURIComponent(address)}&command=${encodeURIComponent(command)}`, 'POST');
+        } else if (method === 'query') {
+          result = await makeRequest(`/gpib/query?address=${encodeURIComponent(address)}&command=${encodeURIComponent(command)}`, 'POST');
+        }
+
+        if (result) {
+          output.value = formatJSON(result);
+        }
+      } catch (error) {
+        output.value = `Error: ${error.message}`;
+      }
+    }
+
+    async function closeConnection() {
+      const address = document.getElementById('closeAddress').value;
+      if (!address) {
+        showStatus('connectionStatus', '❌ Error: Debes proporcionar una dirección GPIB', 'error');
+        return;
+      }
+
+      try {
+        const result = await makeRequest(`/gpib/close/${encodeURIComponent(address)}`, 'DELETE');
+        if (result) {
+          showStatus('connectionStatus', `✅ ${result.message}`, 'success');
+        }
+      } catch (error) {
+        showStatus('connectionStatus', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    async function closeAllConnections() {
+      try {
+        const result = await makeRequest('/gpib/close-all', 'DELETE');
+        if (result) {
+          showStatus('connectionStatus', `✅ ${result.message}`, 'success');
+        }
+      } catch (error) {
+        showStatus('connectionStatus', `❌ Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-detectar adaptadores al cargar la página
+    window.addEventListener('load', function() {
+      showStatus('authStatus', '👋 Bienvenido al GPIB API Client v2.0. Configura el servidor y ingresa un token para comenzar.', 'info');
+      
+      // Probar conexión automáticamente al cargar
+      setTimeout(() => {
+        testServerConnection();
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

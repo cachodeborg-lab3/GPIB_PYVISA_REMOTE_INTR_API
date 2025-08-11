@@ -1,0 +1,13 @@
+{
+    "users": {
+      "admin": {
+        "token": "abc123",
+        "permissions": "readwrite"
+      },
+      "user": {
+        "token": "xyz789",
+        "permissions": "readonly"
+      }
+    }
+  }
+  
